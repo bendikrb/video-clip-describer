@@ -42,7 +42,7 @@ class VisionAgent:
     """Prompt to send to the LLM to reformat the description."""
     prompt_context: str | None = None
     """Context to add to the prompt (will be replaced with {context} in the prompt)."""
-    resize_video: tuple[int, int] = (342, 256)
+    resize_video: tuple[int, int] = (640, 360)
     """Resize the video before sending to the LLM."""
     stack_grid: bool = False
     """Put video frames in a grid before sending to the LLM."""
@@ -50,9 +50,9 @@ class VisionAgent:
     """Grid size to stack frames in."""
     remove_similar_frames: bool = True
     """Remove similar frames before sending to the LLM."""
-    hashing_max_frames: int = 100
+    hashing_max_frames: int = 200
     """Maximum number of frames to hash."""
-    hash_size: int = 8
+    hash_size: int = 12
     """Hash size to use when hashing frames. Lower value means more frames are removed."""
     debug: bool = False
     """Debug mode."""
