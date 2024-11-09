@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 
 import cv2
 import imagehash
-import litellm
 import numpy as np
+from openai import AsyncClient
 from PIL import Image
 
 from .const import (
@@ -80,13 +80,12 @@ class VisionAgent:
         if self.prompt_context is not None:
             self._prompt_vars["context"] = self.prompt_context
 
-        litellm.api_base = self.api_base_url
-        litellm.api_key = self.api_key
+        self.openai = AsyncClient(base_url=self.api_base_url, api_key=self.api_key)
 
     def _remove_similar_frames(
         self,
         base64_frames: list[str],
-    ):
+    ) -> list[str]:
         base64_hashing_frames = []
         hashes = []
         total_frames = len(base64_frames)
@@ -119,9 +118,13 @@ class VisionAgent:
 
         if len(hashes) > 0:
             keep_frames = []
+            keep_frames_hashes = []
             for x, frame_hash in enumerate(hashes):
+                if frame_hash in keep_frames_hashes:
+                    continue
                 if x == 0 or frame_hash != hashes[x - 1]:
                     keep_frames.append(base64_frames[x])
+                    keep_frames_hashes.append(frame_hash)
 
             _LOGGER.info("Got %d frames after removing similar frames", len(keep_frames))
             base64_frames = keep_frames
@@ -180,7 +183,7 @@ class VisionAgent:
             _, buffer = cv2.imencode(".jpg", frame)
             base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
 
-        _LOGGER.info("Generated %d frames from %s", len(base64_frames), self.video_file)
+        _LOGGER.info("Extracted %d frames from %s", len(base64_frames), self.video_file)
         video.release()
 
         if self.remove_similar_frames:
@@ -248,7 +251,7 @@ class VisionAgent:
             "max_tokens": 200,
             "temperature": 0,
         }
-        result = await litellm.acompletion(**params)
+        result = await self.openai.chat.completions.create(**params)
         return result.choices[0].message.content
 
     async def run(
@@ -279,7 +282,7 @@ class VisionAgent:
                 "max_tokens": 250,
             }
 
-            result = await litellm.acompletion(**params)
+            result = await self.openai.chat.completions.create(**params)
             return result.choices[0].message.content
 
         return "[Test only]"
