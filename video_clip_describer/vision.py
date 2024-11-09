@@ -32,9 +32,9 @@ class VisionAgent:
     """API base URL to use for the LLM."""
     api_key: str | None = None
     """API key to use for the LLM."""
-    vision_model: str = "claude-3-5-sonnet"
+    vision_model: str = "gemini-1.5-pro"
     """LLM model to use for vision."""
-    refine_model: str = "gemini-1.5-flash"
+    refine_model: str = "claude-3-5-sonnet"
     """LLM model to use for refinement of the description."""
     vision_prompt: str | None = None
     """Prompt to send to the LLM to describe the video."""
@@ -42,7 +42,7 @@ class VisionAgent:
     """Prompt to send to the LLM to reformat the description."""
     prompt_context: str | None = None
     """Context to add to the prompt (will be replaced with {context} in the prompt)."""
-    resize_video: tuple[int, int] = (1024, 768)
+    resize_video: tuple[int, int] = (342, 256)
     """Resize the video before sending to the LLM."""
     stack_grid: bool = False
     """Put video frames in a grid before sending to the LLM."""
@@ -50,7 +50,7 @@ class VisionAgent:
     """Grid size to stack frames in."""
     remove_similar_frames: bool = True
     """Remove similar frames before sending to the LLM."""
-    hashing_max_frames: int = 200
+    hashing_max_frames: int = 100
     """Maximum number of frames to hash."""
     hash_size: int = 8
     """Hash size to use when hashing frames. Lower value means more frames are removed."""
