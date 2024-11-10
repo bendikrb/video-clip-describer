@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+import tempfile
 from typing import TYPE_CHECKING
 
 import cv2
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class VisionAgent:
-    video_file: PathLike | str
+    video_file: PathLike | None = None
     """Video file to describe."""
     api_base_url: str | None = "https://api.openai.com/v1"
     """API base URL to use for the LLM."""
@@ -63,7 +64,8 @@ class VisionAgent:
     _prompt_vars: dict[str, str] = field(init=False)
 
     def __post_init__(self):
-        self.video_file = Path(self.video_file)
+        if self.video_file:
+            self.video_file = Path(self.video_file)
         self.debug_dir = Path(self.debug_dir)
         if self.debug:
             run_name = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -171,9 +173,17 @@ class VisionAgent:
 
     async def video_to_frames(
         self,
+        video_data: bytes | None = None,
     ):
         """Generate jpg-encoded frames from a video."""
-        video = cv2.VideoCapture(str(self.video_file))
+        if video_data:
+            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
+                temp_file.write(video_data)
+                temp_path = temp_file.name
+            video = cv2.VideoCapture(temp_path)
+        else:
+            video = cv2.VideoCapture(str(self.video_file))
+
         base64_frames = []
         while video.isOpened():
             success, frame = video.read()
@@ -183,7 +193,7 @@ class VisionAgent:
             _, buffer = cv2.imencode(".jpg", frame)
             base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
 
-        _LOGGER.info("Extracted %d frames from %s", len(base64_frames), self.video_file)
+        _LOGGER.info("Extracted %d frames from video", len(base64_frames))
         video.release()
 
         if self.remove_similar_frames:
@@ -256,10 +266,15 @@ class VisionAgent:
 
     async def run(
         self,
+        video_data: bytes | None = None,
+        video_file: PathLike | None = None,
         test=False,
     ):
         """Generate a description from video."""
-        frames = await self.video_to_frames()
+        if video_file is not None:
+            self.video_file = Path(video_file)
+
+        frames = await self.video_to_frames(video_data)
 
         if not test:
             description = await self.describe_frames(frames)
