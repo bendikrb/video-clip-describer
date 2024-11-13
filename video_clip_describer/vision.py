@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 import tempfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, Unpack
 
 import cv2
 import imagehash
@@ -23,6 +23,21 @@ from .const import (
 
 if TYPE_CHECKING:
     from os import PathLike
+
+
+class _AgentOptions(TypedDict, total=False):
+    video_file: PathLike | None
+    vision_model: str | None
+    refine_model: str | None
+    vision_prompt: str | None
+    refine_prompt: str | None
+    prompt_context: str | None
+    resize_video: tuple[int, int] | None
+    stack_grid: bool | None
+    stack_grid_size: tuple[int, int] | None
+    remove_similar_frames: bool | None
+    hashing_max_frames: int | None
+    hash_size: int | None
 
 
 @dataclass
@@ -83,6 +98,28 @@ class VisionAgent:
             self._prompt_vars["context"] = self.prompt_context
 
         self.openai = AsyncClient(base_url=self.api_base_url, api_key=self.api_key)
+
+    def with_params(self, **kwargs: Unpack[_AgentOptions]) -> VisionAgent:
+        # noinspection PyTypeChecker
+        current_params = {f.name: getattr(self, f.name) for f in fields(self) if not f.name.startswith("_")}
+        return VisionAgent(**{**current_params, **kwargs})
+
+    async def get_models(self, vision_only=True) -> list[str]:
+        models = await self.openai.models.list()
+
+        def include_model(m_id: str):
+            if m_id.startswith("dall-e"):
+                return False
+            if "embed" in m_id or "tts" in m_id or "whisper" in m_id:
+                return False
+            if vision_only:
+                if m_id.startswith("llama") and "vision" not in m_id:
+                    return False
+                if m_id.startswith("gpt-") and "4o" not in m_id:
+                    return False
+            return True
+
+        return [model.id for model in models.data if include_model(model.id)]
 
     def _remove_similar_frames(
         self,
