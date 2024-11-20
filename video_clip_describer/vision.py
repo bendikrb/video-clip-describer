@@ -219,11 +219,12 @@ class VisionAgent:
         video_data: bytes | None = None,
     ):
         """Generate jpg-encoded frames from a video."""
+        temp_path = None
         if video_data:
             with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
                 temp_file.write(video_data)
-                temp_path = temp_file.name
-            video = cv2.VideoCapture(temp_path)
+                temp_path = Path(temp_file.name)
+            video = cv2.VideoCapture(str(temp_path))
         else:
             video = cv2.VideoCapture(str(self.video_file))
 
@@ -238,6 +239,9 @@ class VisionAgent:
 
         _LOGGER.info("Extracted %d frames from video", len(base64_frames))
         video.release()
+
+        if temp_path:
+            temp_path.unlink()
 
         if self.remove_similar_frames:
             base64_frames = self._remove_similar_frames(base64_frames)
