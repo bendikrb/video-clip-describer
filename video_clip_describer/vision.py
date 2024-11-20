@@ -167,6 +167,12 @@ class VisionAgent:
 
             _LOGGER.info("Got %d frames after removing similar frames", len(keep_frames))
             base64_frames = keep_frames
+        else:
+            _LOGGER.info(
+                "No similar frames removed, as total frames of %d is less than hashing max of %d",
+                total_frames,
+                self.hashing_max_frames,
+            )
 
         return base64_frames
 
@@ -236,23 +242,26 @@ class VisionAgent:
         if self.remove_similar_frames:
             base64_frames = self._remove_similar_frames(base64_frames)
 
-        if self.debug:
-            for x, f in enumerate(base64_frames):
-                im = cv2.imdecode(np.frombuffer(base64.b64decode(f), np.uint8), cv2.IMREAD_COLOR)
-                frame_path = self._debug_dir / f"frame{x:03d}.jpg"
-                cv2.imwrite(str(frame_path), im)
+        self._debug_frames(base64_frames)
 
         if self.stack_grid:
             base64_frames = self._make_grid(base64_frames)
             _LOGGER.info("Created %d grid frames", len(base64_frames))
 
-            if self.debug:
-                for x, f in enumerate(base64_frames):
-                    im = cv2.imdecode(np.frombuffer(base64.b64decode(f), np.uint8), cv2.IMREAD_COLOR)
-                    frame_path = self._debug_dir / f"grid{x:03d}.jpg"
-                    cv2.imwrite(str(frame_path), im)
+        self._debug_frames(base64_frames, "grid")
 
         return base64_frames
+
+    def _debug_frames(self, base64_frames: list[str], prefix: str | None = None):
+        """Save frames to disk for debugging."""
+        if not self.debug:
+            return
+        prefix = prefix or "frame"
+        _LOGGER.info("Exporting %d frames for debugging to %s", len(base64_frames), self._debug_dir)
+        for x, f in enumerate(base64_frames):
+            im = cv2.imdecode(np.frombuffer(base64.b64decode(f), np.uint8), cv2.IMREAD_COLOR)
+            frame_path = self._debug_dir / f"{prefix}{x:03d}.jpg"
+            cv2.imwrite(str(frame_path), im)
 
     async def describe_frames(
         self,
